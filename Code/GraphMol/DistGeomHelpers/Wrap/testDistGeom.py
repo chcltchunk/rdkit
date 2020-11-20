@@ -10,6 +10,7 @@ import pickle
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDistGeom, ChemicalForceFields, rdMolAlign
+import rdkit.DistanceGeometry as DG
 from rdkit import RDConfig, rdBase
 from rdkit.Geometry import rdGeometry as geom
 from rdkit.RDLogger import logger
@@ -175,14 +176,14 @@ class TestCase(unittest.TestCase):
         cids = rdDistGeom.EmbedMultipleConfs(mol, 10, maxAttempts=30, randomSeed=100,
                                  useExpTorsionAnglePrefs=False,
                                  useBasicKnowledge=False)
-        energies = [115.460, 105.891, 109.868, 104.415,
-            92.944, 140.917, 139.468, 95.081, 123.528, 107.885]
+        energies = [116.330, 106.246, 109.816, 104.890,
+            93.060, 140.803, 139.253, 95.820, 123.591, 108.655]
         nenergies = []
         for cid in cids:
             ff = ChemicalForceFields.UFFGetMoleculeForceField(mol, 10.0, cid)
             ee = ff.CalcEnergy()
             nenergies.append(ee)
-        #print(['%.2f' % x for x in nenergies])
+        # print(['%.3f' % x for x in nenergies])
         # print(nenergies)
         self.assertTrue(lstEq(energies, nenergies, tol=1e-2))
 
@@ -533,6 +534,55 @@ class TestCase(unittest.TestCase):
         ref = Chem.MolFromMolFile(fn, removeHs=False)
         self.assertEqual(rdDistGeom.EmbedMolecule(mol, randomSeed=42), 0)
         self._compareConfs(mol, ref, 0, 0)
+
+    def testProvidingBoundsMatrix(self):
+        m1 = Chem.MolFromSmiles("C1CCC1C")
+        bm1 = rdDistGeom.GetMoleculeBoundsMatrix(m1)
+        bm1[0,3] = 1.21
+        bm1[3,0] = 1.20
+        bm1[2,3] = 1.21
+        bm1[3,2] = 1.20
+        bm1[4,3] = 1.21
+        bm1[3,4] = 1.20
+        DG.DoTriangleSmoothing(bm1)
+        ps = rdDistGeom.EmbedParameters()
+        ps.useRandomCoords = True
+        ps.SetBoundsMat(bm1)
+        ps.randomSeed = 0xf00d
+        self.assertEqual(rdDistGeom.EmbedMolecule(m1,ps),0)
+        conf = m1.GetConformer()
+        self.assertAlmostEqual((conf.GetAtomPosition(3)-conf.GetAtomPosition(0)).Length(),1.2,delta=0.05)
+        self.assertAlmostEqual((conf.GetAtomPosition(3)-conf.GetAtomPosition(2)).Length(),1.2,delta=0.05)
+        self.assertAlmostEqual((conf.GetAtomPosition(3)-conf.GetAtomPosition(4)).Length(),1.2,delta=0.05)
+
+    def testProvidingCPCI(self):
+        """
+        test for a ring molecule, repeated generating a conformer with and without enforcing 
+        an additional +ve interaction between a pair of non-bonded atoms (termed CPCI, 
+        custom pairwise charge-like interaciton), in every iteration, applying CPCI should
+        yield a conformer where this pair of atoms are further apart.
+        """
+        for i in range(5):
+            ps = rdDistGeom.EmbedParameters()
+            ps.randomSeed = i
+            ps.useBasicKnowledge = True
+            ps.useRandomCoords = False
+            m1 = Chem.MolFromSmiles("C1CCCC1C")
+            self.assertEqual(rdDistGeom.EmbedMolecule(m1,ps),0)
+
+            m2 = Chem.MolFromSmiles("C1CCCC1C")
+            ps = rdDistGeom.EmbedParameters()
+            ps.randomSeed = i
+            ps.useRandomCoords = False
+            ps.useBasicKnowledge = True
+            ps.SetCPCI({ (0,3) : 0.9 } )
+            self.assertEqual(rdDistGeom.EmbedMolecule(m2,ps),0)
+
+            conf1 = m1.GetConformer()
+            conf2 = m2.GetConformer()
+            self.assertTrue((conf2.GetAtomPosition(3)-conf2.GetAtomPosition(0)).Length() > (conf1.GetAtomPosition(3)-conf1.GetAtomPosition(0)).Length())
+
+        
 
 
 if __name__ == '__main__':

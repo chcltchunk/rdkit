@@ -67,7 +67,7 @@ RDKIT_MOLTRANSFORMS_EXPORT RDGeom::Point3D computeCentroid(
 RDKIT_MOLTRANSFORMS_EXPORT bool computePrincipalAxesAndMoments(
     const RDKit::Conformer &conf, Eigen::Matrix3d &axes,
     Eigen::Vector3d &moments, bool ignoreHs = false, bool force = false,
-    const std::vector<double> *weights = NULL);
+    const std::vector<double> *weights = nullptr);
 //! Compute principal axes and moments from the gyration matrix of a conformer
 /*!
 
@@ -90,27 +90,27 @@ RDKIT_MOLTRANSFORMS_EXPORT bool
 computePrincipalAxesAndMomentsFromGyrationMatrix(
     const RDKit::Conformer &conf, Eigen::Matrix3d &axes,
     Eigen::Vector3d &moments, bool ignoreHs = false, bool force = false,
-    const std::vector<double> *weights = NULL);
+    const std::vector<double> *weights = nullptr);
 #endif
 
 //! Compute the transformation require to orient the conformation
 //! along the principal axes about the center; i.e. center is made to coincide
 // with the
-//! origin, the largest princiapl axis with the x-axis, the next largest with
+//! origin, the largest principal axis with the x-axis, the next largest with
 // the y-axis
 //! and the smallest with the z-axis
 /*!
-  If center is not specified the the centroid of the conformer will be used
+  If center is not specified the centroid of the conformer will be used
   \param conf                Conformer of interest
   \param center              Center to be used for canonicalization, defaults to
   the centroid of the
                              conformation
   \param normalizeCovar      Normalize the covariance matrix with the number of
   atoms
-  \param ignoreHs            Optinally ignore hydrogens
+  \param ignoreHs            Optionally ignore hydrogens
 */
 RDKIT_MOLTRANSFORMS_EXPORT RDGeom::Transform3D *computeCanonicalTransform(
-    const RDKit::Conformer &conf, const RDGeom::Point3D *center = 0,
+    const RDKit::Conformer &conf, const RDGeom::Point3D *center = nullptr,
     bool normalizeCovar = false, bool ignoreHs = true);
 
 //! Transform the conformation using the specified transformation
@@ -131,7 +131,7 @@ RDKIT_MOLTRANSFORMS_EXPORT void transformConformer(
 
 */
 RDKIT_MOLTRANSFORMS_EXPORT void canonicalizeConformer(
-    RDKit::Conformer &conf, const RDGeom::Point3D *center = 0,
+    RDKit::Conformer &conf, const RDGeom::Point3D *center = nullptr,
     bool normalizeCovar = false, bool ignoreHs = true);
 
 //! Canonicalize all the conformations in a molecule

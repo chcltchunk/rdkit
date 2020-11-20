@@ -317,7 +317,7 @@ def to_table(data, bins=None):
     #alternative implementation with double loop
     #tt = np.asarray([[(x == [i,j]).all(1).sum() for j in cat_uni]
     #                 for i in cat_uni] )
-    #other altervative: unique rows and bincount
+    #other alternative: unique rows and bincount
   elif np.isscalar(bins):
     bins_ = np.arange(bins + 1) - 0.5
     data_ = data
@@ -335,7 +335,7 @@ class p_con:
     using threshold for value in training-data"""
 
   def __init__(self, acc_id=None, proxy={}):
-    """Constructor to initialize Object, use proxy if neccessary"""
+    """Constructor to initialize Object, use proxy if necessary"""
     self.request_data = {"acc_id": acc_id, "proxy": proxy}
     self.acc_id = acc_id
     self.proxy = proxy

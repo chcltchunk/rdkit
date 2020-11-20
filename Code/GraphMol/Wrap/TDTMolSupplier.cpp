@@ -15,7 +15,6 @@
 // ours
 #include <GraphMol/FileParsers/MolSupplier.h>
 #include <GraphMol/RDKitBase.h>
-#include <RDBoost/iterator_next.h>
 #include "MolSupplier.h"
 
 namespace python = boost::python;
@@ -34,10 +33,10 @@ std::string tdtMolSupplierClassDoc =
 \n\
     2) Lazy evaluation 2:\n\n\
        >>> suppl = TDTMolSupplier('in.smi')\n\
-       >>> mol1 = suppl.next()\n\
-       >>> mol2 = suppl.next()\n\
+       >>> mol1 = next(suppl)\n\
+       >>> mol2 = next(suppl)\n\
        >>> suppl.reset()\n\
-       >>> mol3 = suppl.next()\n\n\
+       >>> mol3 = next(suppl)\n\n\
        # mol3 and mol1 are the same:\
        >>> MolToSmiles(mol3)==MolToSmiles(mol1)\n\
 \n\
@@ -62,7 +61,7 @@ struct tdtmolsup_wrap {
         .def("__iter__",
              (TDTMolSupplier * (*)(TDTMolSupplier *)) & MolSupplIter,
              python::return_internal_reference<1>())
-        .def(NEXT_METHOD, (ROMol * (*)(TDTMolSupplier *)) & MolSupplNext,
+        .def("__next__", (ROMol * (*)(TDTMolSupplier *)) & MolSupplNext,
              "Returns the next molecule in the file.  Raises _StopIteration_ "
              "on EOF.\n",
              python::return_value_policy<python::manage_new_object>())

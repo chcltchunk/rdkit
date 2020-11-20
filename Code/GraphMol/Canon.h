@@ -114,9 +114,16 @@ typedef boost::tuple<int, int, Bond *> PossibleType;
 RDKIT_GRAPHMOL_EXPORT void canonicalizeFragment(
     ROMol &mol, int atomIdx, std::vector<AtomColors> &colors,
     const std::vector<unsigned int> &ranks, MolStack &molStack,
-    const boost::dynamic_bitset<> *bondsInPlay = 0,
-    const std::vector<std::string> *bondSymbols = 0,
+    const boost::dynamic_bitset<> *bondsInPlay = nullptr,
+    const std::vector<std::string> *bondSymbols = nullptr,
     bool doIsomericSmiles = false, bool doRandom = false);
+
+//! Check if a chiral atom needs to have its tag flipped after reading or before
+//! writing SMILES
+RDKIT_GRAPHMOL_EXPORT bool chiralAtomNeedsTagInversion(const RDKit::ROMol &mol,
+                                                       const RDKit::Atom *atom,
+                                                       bool isAtomFirst,
+                                                       size_t numClosures);
 
 }  // end of namespace Canon
 }  // end of namespace RDKit

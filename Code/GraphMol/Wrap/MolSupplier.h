@@ -27,12 +27,14 @@ T *MolSupplIter(T *suppl) {
 
 template <typename T>
 ROMol *MolForwardSupplNext(T *suppl) {
-  ROMol *res = 0;
+  ROMol *res = nullptr;
   if (!suppl->atEnd()) {
     try {
       res = suppl->next();
+    } catch (const FileParseException&) {
+      throw;
     } catch (...) {
-      res = 0;
+      res = nullptr;
     }
   } else {
     PyErr_SetString(PyExc_StopIteration, "End of supplier hit");
@@ -47,12 +49,14 @@ ROMol *MolForwardSupplNext(T *suppl) {
 
 template <typename T>
 ROMol *MolSupplNext(T *suppl) {
-  ROMol *res = 0;
+  ROMol *res = nullptr;
   if (!suppl->atEnd()) {
     try {
       res = suppl->next();
+    } catch (const FileParseException&) {
+      throw;
     } catch (...) {
-      res = 0;
+      res = nullptr;
     }
   } else {
     PyErr_SetString(PyExc_StopIteration, "End of supplier hit");
@@ -63,24 +67,8 @@ ROMol *MolSupplNext(T *suppl) {
 }  // namespace RDKit
 
 template <typename T>
-ROMol *MolSupplNextAcceptNullLastMolecule(T *suppl) {
-  ROMol *res = 0;
-  if (!suppl->atEnd()) {
-    try {
-      res = suppl->next();
-    } catch (...) {
-      res = 0;
-    }
-  } else {
-    PyErr_SetString(PyExc_StopIteration, "End of supplier hit");
-    throw boost::python::error_already_set();
-  }
-  return res;
-}
-
-template <typename T>
 ROMol *MolSupplGetItem(T *suppl, int idx) {
-  ROMol *res = 0;
+  ROMol *res = nullptr;
   if (idx < 0) {
     idx = suppl->length() + idx;
   }
@@ -96,7 +84,7 @@ ROMol *MolSupplGetItem(T *suppl, int idx) {
       PyErr_SetString(PyExc_IndexError, "invalid index");
       throw boost::python::error_already_set();
     } else {
-      res = 0;
+      res = nullptr;
     }
   }
   return res;

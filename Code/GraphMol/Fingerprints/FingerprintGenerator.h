@@ -21,7 +21,7 @@ namespace RDKit {
 class ROMol;
 
 struct RDKIT_FINGERPRINTS_EXPORT AdditionalOutput {
-  // will review this structure once more fignerprint types are implemented
+  // will review this structure once more fingerprint types are implemented
 
   std::vector<std::vector<std::uint64_t>> *atomToBits;
 
@@ -52,12 +52,14 @@ template <typename OutputType>
 class RDKIT_FINGERPRINTS_EXPORT FingerprintArguments
     : private boost::noncopyable {
  public:
-  FingerprintArguments(const bool countSimulation,
+  FingerprintArguments(bool countSimulation,
                        const std::vector<std::uint32_t> countBounds,
-                       const std::uint32_t fpSize);
+                       std::uint32_t fpSize,
+                       std::uint32_t numBitsPerFeature = 1);
   const bool d_countSimulation;
   const std::vector<std::uint32_t> d_countBounds;
   const std::uint32_t d_fpSize;
+  const std::uint32_t d_numBitsPerFeature;
 
   /*!
     \brief Returns the size of the fingerprint based on arguments
@@ -303,8 +305,8 @@ class RDKIT_FINGERPRINTS_EXPORT UnimplementedFPException
   //! construct with an error message
   UnimplementedFPException(const std::string &msg) : _msg(msg){};
   //! get the error message
-  const char *message() const { return _msg.c_str(); };
-  ~UnimplementedFPException() throw(){};
+  const char *what() const noexcept override { return _msg.c_str(); };
+  ~UnimplementedFPException() noexcept {};
 
  private:
   std::string _msg;

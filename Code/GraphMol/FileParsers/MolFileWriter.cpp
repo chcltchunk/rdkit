@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2003-2017 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2003-2020 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -29,8 +29,11 @@
 #include <boost/format.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <RDGeneral/BadFileException.h>
+#include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/SmilesParse/SmartsWrite.h>
 #include <GraphMol/Depictor/RDDepictor.h>
+
+#include <boost/algorithm/string.hpp>
 
 using namespace RDKit::SGroupWriting;
 
@@ -68,10 +71,11 @@ int getQueryBondTopology(const Bond *bond) {
     }
   }
   if (qry->getDescription() == "BondInRing") {
-    if (qry->getNegation())
+    if (qry->getNegation()) {
       res = 2;
-    else
+    } else {
       res = 1;
+    }
   }
   return res;
 }
@@ -111,7 +115,9 @@ int getQueryBondSymbol(const Bond *bond) {
           // ok, it's a bond query we have a chance of dealing with
           int t1 = static_cast<BOND_EQUALS_QUERY *>(child1->get())->getVal();
           int t2 = static_cast<BOND_EQUALS_QUERY *>(child2->get())->getVal();
-          if (t1 > t2) std::swap(t1, t2);
+          if (t1 > t2) {
+            std::swap(t1, t2);
+          }
           if (t1 == Bond::SINGLE && t2 == Bond::DOUBLE) {
             res = 5;
           } else if (t1 == Bond::SINGLE && t2 == Bond::AROMATIC) {
@@ -280,7 +286,8 @@ const std::string GetMolFileQueryInfo(
   }
   for (const auto atom : mol.atoms()) {
     bool wrote_query = false;
-    if (!listQs[atom->getIdx()] && hasComplexQuery(atom)) {
+    if (!listQs[atom->getIdx()] && !queryListAtoms[atom->getIdx()] &&
+        hasComplexQuery(atom)) {
       std::string sma =
           SmartsWrite::GetAtomSmarts(static_cast<const QueryAtom *>(atom));
       ss << "V  " << std::setw(3) << atom->getIdx() + 1 << " " << sma
@@ -289,9 +296,10 @@ const std::string GetMolFileQueryInfo(
     }
     std::string molFileValue;
     if (!wrote_query &&
-        atom->getPropIfPresent(common_properties::molFileValue, molFileValue))
+        atom->getPropIfPresent(common_properties::molFileValue, molFileValue)) {
       ss << "V  " << std::setw(3) << atom->getIdx() + 1 << " " << molFileValue
          << std::endl;
+    }
   }
   for (const auto atom : mol.atoms()) {
     if (listQs[atom->getIdx()]) {
@@ -327,8 +335,9 @@ const std::string GetMolFileRGroupInfo(const RWMol &mol) {
     }
   }
   std::stringstream ss2;
-  if (nEntries)
+  if (nEntries) {
     ss2 << "M  RGP" << std::setw(3) << nEntries << ss.str() << std::endl;
+  }
   return ss2.str();
 }
 
@@ -338,9 +347,10 @@ const std::string GetMolFileAliasInfo(const RWMol &mol) {
        atomIt != mol.endAtoms(); ++atomIt) {
     std::string lbl;
     if ((*atomIt)->getPropIfPresent(common_properties::molFileAlias, lbl)) {
-      if (!lbl.empty())
+      if (!lbl.empty()) {
         ss << "A  " << std::setw(3) << (*atomIt)->getIdx() + 1 << "\n"
            << lbl << "\n";
+      }
     }
   }
   return ss.str();
@@ -386,7 +396,9 @@ const std::string GetMolFileZBOInfo(const RWMol &mol) {
     std::stringstream zchss;
     unsigned int nzch = 0;
     for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
-      if (!atomsAffected[i]) continue;
+      if (!atomsAffected[i]) {
+        continue;
+      }
       const Atom *atom = mol.getAtomWithIdx(i);
       nhyd++;
       hydss << boost::format(" %3d %3d") % (atom->getIdx() + 1) %
@@ -430,26 +442,49 @@ const std::string AtomGetMolFileSymbol(
     res = atom->getSymbol();
   } else {
     if (!atom->hasProp(common_properties::dummyLabel)) {
-      if (atom->hasQuery() && atom->getQuery()->getNegation() &&
-          atom->getQuery()->getDescription() == "AtomAtomicNum" &&
-          static_cast<ATOM_EQUALS_QUERY *>(atom->getQuery())->getVal() == 1) {
+      if (atom->hasQuery() &&
+          (atom->getQuery()->getTypeLabel() == "A" ||
+           (atom->getQuery()->getNegation() &&
+            atom->getQuery()->getDescription() == "AtomAtomicNum" &&
+            static_cast<ATOM_EQUALS_QUERY *>(atom->getQuery())->getVal() ==
+                1))) {
         res = "A";
-      } else if (atom->hasQuery() && atom->getQuery()->getNegation() &&
-                 atom->getQuery()->getDescription() == "AtomOr" &&
-                 atom->getQuery()->endChildren() -
-                         atom->getQuery()->beginChildren() ==
-                     2 &&
-                 (*atom->getQuery()->beginChildren())->getDescription() ==
-                     "AtomAtomicNum" &&
-                 static_cast<ATOM_EQUALS_QUERY *>(
-                     (*atom->getQuery()->beginChildren()).get())
-                         ->getVal() == 6 &&
-                 (*++(atom->getQuery()->beginChildren()))->getDescription() ==
-                     "AtomAtomicNum" &&
-                 static_cast<ATOM_EQUALS_QUERY *>(
-                     (*++(atom->getQuery()->beginChildren())).get())
-                         ->getVal() == 1) {
+      } else if (atom->hasQuery() &&
+                 (atom->getQuery()->getTypeLabel() == "Q" ||
+                  (atom->getQuery()->getNegation() &&
+                   atom->getQuery()->getDescription() == "AtomOr" &&
+                   atom->getQuery()->endChildren() -
+                           atom->getQuery()->beginChildren() ==
+                       2 &&
+                   (*atom->getQuery()->beginChildren())->getDescription() ==
+                       "AtomAtomicNum" &&
+                   static_cast<ATOM_EQUALS_QUERY *>(
+                       (*atom->getQuery()->beginChildren()).get())
+                           ->getVal() == 6 &&
+                   (*++(atom->getQuery()->beginChildren()))->getDescription() ==
+                       "AtomAtomicNum" &&
+                   static_cast<ATOM_EQUALS_QUERY *>(
+                       (*++(atom->getQuery()->beginChildren())).get())
+                           ->getVal() == 1))) {
         res = "Q";
+        queryListAtoms.set(atom->getIdx());
+      } else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "X") {
+        res = "X";
+        queryListAtoms.set(atom->getIdx());
+      } else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "M") {
+        res = "M";
+        queryListAtoms.set(atom->getIdx());
+      } else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "AH") {
+        res = "AH";
+        queryListAtoms.set(atom->getIdx());
+      } else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "QH") {
+        res = "QH";
+        queryListAtoms.set(atom->getIdx());
+      } else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "XH") {
+        res = "XH";
+        queryListAtoms.set(atom->getIdx());
+      } else if (atom->hasQuery() && atom->getQuery()->getTypeLabel() == "MH") {
+        res = "MH";
         queryListAtoms.set(atom->getIdx());
       } else if (hasComplexQuery(atom)) {
         if (hasListQuery(atom)) {
@@ -463,35 +498,38 @@ const std::string AtomGetMolFileSymbol(
     } else {
       std::string symb;
       atom->getProp(common_properties::dummyLabel, symb);
-      if (symb == "*")
+      if (symb == "*") {
         res = "R";
-      else if (symb == "X")
+      } else if (symb == "X") {
         res = "R";
-      else if (symb == "Xa")
+      } else if (symb == "Xa") {
         res = "R1";
-      else if (symb == "Xb")
+      } else if (symb == "Xb") {
         res = "R2";
-      else if (symb == "Xc")
+      } else if (symb == "Xc") {
         res = "R3";
-      else if (symb == "Xd")
+      } else if (symb == "Xd") {
         res = "R4";
-      else if (symb == "Xf")
+      } else if (symb == "Xf") {
         res = "R5";
-      else if (symb == "Xg")
+      } else if (symb == "Xg") {
         res = "R6";
-      else if (symb == "Xh")
+      } else if (symb == "Xh") {
         res = "R7";
-      else if (symb == "Xi")
+      } else if (symb == "Xi") {
         res = "R8";
-      else if (symb == "Xj")
+      } else if (symb == "Xj") {
         res = "R9";
-      else
+      } else {
         res = symb;
+      }
     }
   }
   // pad the end with spaces
   if (padWithSpaces) {
-    while (res.size() < 3) res += " ";
+    while (res.size() < 3) {
+      res += " ";
+    }
   }
   return res;
 }
@@ -500,8 +538,10 @@ namespace {
 unsigned int getAtomParityFlag(const Atom *atom, const Conformer *conf) {
   PRECONDITION(atom, "bad atom");
   PRECONDITION(conf, "bad conformer");
-  if (!conf->is3D() || !(atom->getDegree() >= 3 && atom->getTotalDegree() == 4))
+  if (!conf->is3D() ||
+      !(atom->getDegree() >= 3 && atom->getTotalDegree() == 4)) {
     return 0;
+  }
 
   const ROMol &mol = atom->getOwningMol();
   RDGeom::Point3D pos = conf->getAtomPos(atom->getIdx());
@@ -516,7 +556,7 @@ unsigned int getAtomParityFlag(const Atom *atom, const Conformer *conf) {
     if (at->getAtomicNum() == 1) {
       idx += mol.getNumAtoms();
     }
-    vs.push_back(std::make_pair(idx, v));
+    vs.emplace_back(idx, v);
     ++nbrIdx;
   }
   std::sort(vs.begin(), vs.end(),
@@ -537,21 +577,23 @@ unsigned int getAtomParityFlag(const Atom *atom, const Conformer *conf) {
 }  // namespace
 
 bool hasNonDefaultValence(const Atom *atom) {
-  if (atom->getNumRadicalElectrons() != 0) return true;
-  if (atom->hasQuery()) return false;
-  switch (atom->getAtomicNum()) {
-    case 1:   // H
-    case 5:   // B
-    case 6:   // C
-    case 7:   // N
-    case 8:   // O
-    case 9:   // F
-    case 15:  // P
-    case 16:  // S
-    case 17:  // Cl
-    case 35:  // Br
-    case 53:  // I
+  if (atom->getNumRadicalElectrons() != 0) {
+    return true;
+  }
+  if (atom->hasQuery()) {
+    return false;
+  }
+  if (atom->getAtomicNum() == 1 ||
+      SmilesWrite ::inOrganicSubset(atom->getAtomicNum())) {
+    // for the ones we "know", we may have to specify the valence if it's
+    // not the default value
+    if (atom->getNoImplicit() &&
+        (atom->getExplicitValence() !=
+         PeriodicTable::getTable()->getDefaultValence(atom->getAtomicNum()))) {
+      return true;
+    } else {
       return false;
+    }
   }
   return true;
 }
@@ -644,7 +686,7 @@ const std::string GetMolFileAtomLine(const Atom *atom, const Conformer *conf,
            totValence, rxnComponentType, rxnComponentNumber, atomMapNumber,
            inversionFlag, exactChangeFlag);
 #else
-  // ok, technically we should be being more careful about this, but tiven that
+  // ok, technically we should be being more careful about this, but given that
   // the format string makes it impossible for this to overflow, I think we're
   // safe. I just used the snprintf above to prevent linters from complaining
   // about use of sprintf
@@ -796,33 +838,42 @@ void GetMolFileBondStereoInfo(const Bond *bond, const INT_MAP_INT &wedgeBonds,
         if (bond->getBondDir() == Bond::EITHERDOUBLE) {
           dirCode = 3;
         } else {
-          bool nbrHasDir = false;
+          if ((bond->getBeginAtom()->getTotalValence() -
+               bond->getBeginAtom()->getTotalDegree()) == 1 &&
+              (bond->getEndAtom()->getTotalValence() -
+               bond->getEndAtom()->getTotalDegree()) == 1) {
+            // we only do this if each atom only has one unsaturation
+            // FIX: this is the fix for github #2649, but we will need to change
+            // it once we start handling allenes properly
 
-          ROMol::OEDGE_ITER beg, end;
-          boost::tie(beg, end) =
-              bond->getOwningMol().getAtomBonds(bond->getBeginAtom());
-          while (beg != end && !nbrHasDir) {
-            const Bond *nbrBond = bond->getOwningMol()[*beg];
-            if (nbrBond->getBondType() == Bond::SINGLE &&
-                (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
-                 nbrBond->getBondDir() == Bond::ENDDOWNRIGHT)) {
-              nbrHasDir = true;
+            bool nbrHasDir = false;
+
+            ROMol::OEDGE_ITER beg, end;
+            boost::tie(beg, end) =
+                bond->getOwningMol().getAtomBonds(bond->getBeginAtom());
+            while (beg != end && !nbrHasDir) {
+              const Bond *nbrBond = bond->getOwningMol()[*beg];
+              if (nbrBond->getBondType() == Bond::SINGLE &&
+                  (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
+                   nbrBond->getBondDir() == Bond::ENDDOWNRIGHT)) {
+                nbrHasDir = true;
+              }
+              ++beg;
             }
-            ++beg;
-          }
-          boost::tie(beg, end) =
-              bond->getOwningMol().getAtomBonds(bond->getEndAtom());
-          while (beg != end && !nbrHasDir) {
-            const Bond *nbrBond = bond->getOwningMol()[*beg];
-            if (nbrBond->getBondType() == Bond::SINGLE &&
-                (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
-                 nbrBond->getBondDir() == Bond::ENDDOWNRIGHT)) {
-              nbrHasDir = true;
+            boost::tie(beg, end) =
+                bond->getOwningMol().getAtomBonds(bond->getEndAtom());
+            while (beg != end && !nbrHasDir) {
+              const Bond *nbrBond = bond->getOwningMol()[*beg];
+              if (nbrBond->getBondType() == Bond::SINGLE &&
+                  (nbrBond->getBondDir() == Bond::ENDUPRIGHT ||
+                   nbrBond->getBondDir() == Bond::ENDDOWNRIGHT)) {
+                nbrHasDir = true;
+              }
+              ++beg;
             }
-            ++beg;
-          }
-          if (!nbrHasDir) {
-            dirCode = 3;
+            if (!nbrHasDir) {
+              dirCode = 3;
+            }
           }
         }
       }
@@ -881,16 +932,21 @@ const std::string GetV3000MolFileAtomLine(
   } else {
     INT_VECT vals;
     getListQueryVals(atom->getQuery(), vals);
-    if (atom->getQuery()->getNegation())
+    if (atom->getQuery()->getNegation()) {
       ss << " "
          << "\"NOT";
+    }
     ss << " [";
     for (unsigned int i = 0; i < vals.size(); ++i) {
-      if (i != 0) ss << ",";
+      if (i != 0) {
+        ss << ",";
+      }
       ss << PeriodicTable::getTable()->getElementSymbol(vals[i]);
     }
     ss << "]";
-    if (atom->getQuery()->getNegation()) ss << "\"";
+    if (atom->getQuery()->getNegation()) {
+      ss << "\"";
+    }
   }
 
   ss << " " << x << " " << y << " " << z;
@@ -911,9 +967,11 @@ const std::string GetV3000MolFileAtomLine(
     // Online examples seem to have integer (isotope) values and Marvin won't
     // even read something that has a float.
     // We'll go with the int.
-    int mass = static_cast<int>(round(atom->getMass()));
+    int mass = static_cast<int>(std::round(atom->getMass()));
     // dummies may have an isotope set but they always have a mass of zero:
-    if (!mass) mass = isotope;
+    if (!mass) {
+      mass = isotope;
+    }
     ss << " MASS=" << mass;
   }
 
@@ -939,6 +997,44 @@ const std::string GetV3000MolFileAtomLine(
     atom->getPropIfPresent(common_properties::_MolFileRLabel, rLabel);
     ss << " RGROUPS=(1 " << rLabel << ")";
   }
+
+  {
+    int iprop;
+    if (atom->getPropIfPresent(common_properties::molAttachOrder, iprop) &&
+        iprop) {
+      ss << " ATTCHORD=" << iprop;
+    }
+    if (atom->getPropIfPresent(common_properties::molAttachPoint, iprop) &&
+        iprop) {
+      ss << " ATTCHPT=" << iprop;
+    }
+    if (atom->getPropIfPresent(common_properties::molAtomSeqId, iprop) &&
+        iprop) {
+      ss << " SEQID=" << iprop;
+    }
+    if (atom->getPropIfPresent(common_properties::molRxnExactChange, iprop) &&
+        iprop) {
+      ss << " EXACHG=" << iprop;
+    }
+    if (atom->getPropIfPresent(common_properties::molInversionFlag, iprop) &&
+        iprop) {
+      if (iprop == 1 || iprop == 2) ss << " INVRET=" << iprop;
+    }
+    if (atom->getPropIfPresent(common_properties::molStereoCare, iprop) &&
+        iprop) {
+      ss << " STBOX=" << iprop;
+    }
+    if (atom->getPropIfPresent(common_properties::molSubstCount, iprop) &&
+        iprop) {
+      ss << " SUBST=" << iprop;
+    }
+  }
+  {
+    std::string sprop;
+    if (atom->getPropIfPresent(common_properties::molAtomClass, sprop)) {
+      ss << " CLASS=" << sprop;
+    }
+  }
   // HCOUNT - *query* hydrogen count. Not written by this writer.
 
   return ss.str();
@@ -950,7 +1046,9 @@ int GetV3000BondCode(const Bond *bond) {
   PRECONDITION(bond, "");
   int res = 0;
   // FIX: should eventually recognize queries
-  if (bond->hasQuery()) res = getQueryBondSymbol(bond);
+  if (bond->hasQuery()) {
+    res = getQueryBondSymbol(bond);
+  }
   if (!res) {
     switch (bond->getBondType()) {
       case Bond::SINGLE:
@@ -1031,6 +1129,31 @@ const std::string GetV3000MolFileBondLine(const Bond *bond,
       ss << " TOPO=" << topol;
     }
   }
+
+  {
+    int iprop;
+    if (bond->getPropIfPresent(common_properties::molReactStatus, iprop) &&
+        iprop) {
+      ss << " RXCTR=" << iprop;
+    }
+  }
+
+  {
+    std::string sprop;
+    if (bond->getPropIfPresent(common_properties::molStereoCare, sprop) &&
+        sprop != "0") {
+      ss << " STBOX=" << sprop;
+    }
+    if (bond->getPropIfPresent(common_properties::_MolFileBondEndPts, sprop) &&
+        sprop != "0") {
+      ss << " ENDPTS=" << sprop;
+    }
+    if (bond->getPropIfPresent(common_properties::_MolFileBondAttach, sprop) &&
+        sprop != "0") {
+      ss << " ATTACH=" << sprop;
+    }
+  }
+
   return ss.str();
 }
 
@@ -1047,22 +1170,22 @@ void appendEnhancedStereoGroups(std::string &res, const RWMol &tmol) {
           break;
         case RDKit::StereoGroupType::STEREO_OR:
           res += "STEREL";
-          res += boost::lexical_cast<std::string>(or_count);
+          res += std::to_string(or_count);
           ++or_count;
           break;
         case RDKit::StereoGroupType::STEREO_AND:
           res += "STERAC";
-          res += boost::lexical_cast<std::string>(and_count);
+          res += std::to_string(and_count);
           ++and_count;
           break;
       }
       res += " ATOMS=(";
       auto &atoms = group.getAtoms();
-      res += boost::lexical_cast<std::string>(atoms.size());
+      res += std::to_string(atoms.size());
       for (auto &&atom : atoms) {
         res += ' ';
         // atoms are 1 indexed in molfiles
-        res += boost::lexical_cast<std::string>(atom->getIdx() + 1);
+        res += std::to_string(atom->getIdx() + 1);
       }
       res += ")\n";
     }
@@ -1231,6 +1354,17 @@ std::string outputMolToMolBlock(const RWMol &tmol, int confId,
       res += "M  V30 END SGROUP\n";
     }
 
+    if (tmol.hasProp(common_properties::molFileLinkNodes)) {
+      auto pval =
+          tmol.getProp<std::string>(common_properties::molFileLinkNodes);
+
+      std::vector<std::string> linknodes;
+      boost::split(linknodes, pval, boost::is_any_of("|"));
+      for (const auto &linknode : linknodes) {
+        res += "M  V30 LINKNODE " + linknode + "\n";
+      }
+    }
+
     appendEnhancedStereoGroups(res, tmol);
 
     res += "M  V30 END CTAB\n";
@@ -1243,14 +1377,15 @@ std::string MolToMolBlock(const ROMol &mol, bool includeStereo, int confId,
                           bool kekulize, bool forceV3000) {
   RDUNUSED_PARAM(includeStereo);
   RDKit::Utils::LocaleSwitcher switcher;
-  ROMol tromol(mol);
-  RWMol &trwmol = static_cast<RWMol &>(tromol);
+  RWMol trwmol(mol);
   // NOTE: kekulize the molecule before writing it out
   // because of the way mol files handle aromaticity
   if (trwmol.needsUpdatePropertyCache()) {
     trwmol.updatePropertyCache(false);
   }
-  if (kekulize) MolOps::Kekulize(trwmol);
+  if (kekulize) {
+    MolOps::Kekulize(trwmol);
+  }
 
   if (includeStereo && !trwmol.getNumConformers()) {
     // generate coordinates so that the stereo we generate makes sense
@@ -1259,7 +1394,7 @@ std::string MolToMolBlock(const ROMol &mol, bool includeStereo, int confId,
 #if 0
     if(includeStereo){
       // assign "any" status to any stereo bonds that are not
-      // marked with "E" or "Z" code - these bonds need to be explictly written
+      // marked with "E" or "Z" code - these bonds need to be explicitly written
       // out to the mol file
       MolOps::findPotentialStereoBonds(trwmol);
       // now assign stereo code if any have been specified by the directions on

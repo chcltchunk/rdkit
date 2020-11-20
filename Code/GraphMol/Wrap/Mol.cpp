@@ -27,6 +27,7 @@
 #include <GraphMol/Substruct/SubstructMatch.h>
 #include <boost/python/iterator.hpp>
 #include <boost/python/copy_non_const_reference.hpp>
+#include <GraphMol/SmilesParse/SmilesParse.h>
 
 namespace python = boost::python;
 
@@ -96,17 +97,6 @@ Conformer *GetMolConformer(ROMol &mol, int id = -1) {
   return &(mol.getConformer(id));
 }
 
-PyObject *GetMolConformers(ROMol &mol) {
-  PyObject *res = PyTuple_New(mol.getNumConformers());
-  ROMol::ConformerIterator ci;
-  unsigned int i = 0;
-  for (ci = mol.beginConformers(); ci != mol.endConformers(); ci++) {
-    PyTuple_SetItem(res, i, python::converter::shared_ptr_to_python(*ci));
-    i++;
-  }
-  return res;
-}
-
 void MolDebug(const ROMol &mol, bool useStdout) {
   if (useStdout) {
     mol.debugMol(std::cout);
@@ -124,21 +114,23 @@ void MolDebug(const ROMol &mol, bool useStdout) {
 }
 
 // FIX: we should eventually figure out how to do iterators properly
-AtomIterSeq *MolGetAtoms(ROMol *mol) {
-  AtomIterSeq *res = new AtomIterSeq(mol->beginAtoms(), mol->endAtoms(),
-                                     AtomCountFunctor(*mol));
+AtomIterSeq *MolGetAtoms(const ROMOL_SPTR &mol) {
+  AtomIterSeq *res = new AtomIterSeq(mol, mol->beginAtoms(), mol->endAtoms(),
+                                     AtomCountFunctor(mol));
   return res;
 }
-QueryAtomIterSeq *MolGetAromaticAtoms(ROMol *mol) {
+QueryAtomIterSeq *MolGetAromaticAtoms(const ROMOL_SPTR &mol) {
   auto *qa = new QueryAtom();
   qa->setQuery(makeAtomAromaticQuery());
-  QueryAtomIterSeq *res = new QueryAtomIterSeq(
-      mol->beginQueryAtoms(qa), mol->endQueryAtoms(), AtomCountFunctor(*mol));
+  QueryAtomIterSeq *res =
+      new QueryAtomIterSeq(mol, mol->beginQueryAtoms(qa), mol->endQueryAtoms(),
+                           AtomCountFunctor(mol));
   return res;
 }
-QueryAtomIterSeq *MolGetQueryAtoms(ROMol *mol, QueryAtom *qa) {
-  QueryAtomIterSeq *res = new QueryAtomIterSeq(
-      mol->beginQueryAtoms(qa), mol->endQueryAtoms(), AtomCountFunctor(*mol));
+QueryAtomIterSeq *MolGetQueryAtoms(const ROMOL_SPTR &mol, QueryAtom *qa) {
+  QueryAtomIterSeq *res =
+      new QueryAtomIterSeq(mol, mol->beginQueryAtoms(qa), mol->endQueryAtoms(),
+                           AtomCountFunctor(mol));
   return res;
 }
 
@@ -147,9 +139,15 @@ QueryAtomIterSeq *MolGetQueryAtoms(ROMol *mol, QueryAtom *qa) {
 //                                     mol->endHeteros());
 //  return res;
 //}
-BondIterSeq *MolGetBonds(ROMol *mol) {
-  BondIterSeq *res = new BondIterSeq(mol->beginBonds(), mol->endBonds(),
-                                     BondCountFunctor(*mol));
+BondIterSeq *MolGetBonds(const ROMOL_SPTR &mol) {
+  BondIterSeq *res = new BondIterSeq(mol, mol->beginBonds(), mol->endBonds(),
+                                     BondCountFunctor(mol));
+  return res;
+}
+ConformerIterSeq *GetMolConformers(const ROMOL_SPTR &mol) {
+  ConformerIterSeq *res =
+      new ConformerIterSeq(mol, mol->beginConformers(), mol->endConformers(),
+                           ConformerCountFunctor(mol));
   return res;
 }
 
@@ -164,6 +162,24 @@ int getMolNumAtoms(const ROMol &mol, int onlyHeavy, bool onlyExplicit) {
   }
   return mol.getNumAtoms(onlyExplicit);
 }
+
+namespace {
+class pyobjFunctor {
+ public:
+  pyobjFunctor(python::object obj) : dp_obj(std::move(obj)) {}
+  ~pyobjFunctor() {}
+  bool operator()(const ROMol &m, const std::vector<unsigned int> &match) {
+    return python::extract<bool>(dp_obj(boost::ref(m), boost::ref(match)));
+  }
+
+ private:
+  python::object dp_obj;
+};
+void setSubstructMatchFinalCheck(SubstructMatchParameters &ps,
+                                 python::object func) {
+  ps.extraFinalCheck = pyobjFunctor(func);
+}
+}  // namespace
 
 class ReadWriteMol : public RWMol {
  public:
@@ -195,12 +211,15 @@ class ReadWriteMol : public RWMol {
   void SetStereoGroups(python::list &stereo_groups) {
     std::vector<StereoGroup> groups;
     pythonObjectToVect<StereoGroup>(stereo_groups, groups);
-    for (const auto group : groups) {
+    for (const auto &group : groups) {
       for (const auto atom : group.getAtoms()) {
-        if (!atom) throw_value_error("NULL atom in StereoGroup");
-        if (&atom->getOwningMol() != this)
+        if (!atom) {
+          throw_value_error("NULL atom in StereoGroup");
+        }
+        if (&atom->getOwningMol() != this) {
           throw_value_error(
               "atom in StereoGroup does not belong to this molecule.");
+        }
       }
     }
     setStereoGroups(std::move(groups));
@@ -248,6 +267,7 @@ struct mol_wrapper {
         .value("PrivateProps", RDKit::PicklerOps::PrivateProps)
         .value("ComputedProps", RDKit::PicklerOps::ComputedProps)
         .value("AllProps", RDKit::PicklerOps::AllProps)
+        .value("CoordsAsDouble", RDKit::PicklerOps::CoordsAsDouble)
         .export_values();
     ;
 
@@ -268,6 +288,11 @@ struct mol_wrapper {
             "useChirality", &RDKit::SubstructMatchParameters::useChirality,
             "Use chirality in determining whether or not atoms/bonds match")
         .def_readwrite(
+            "useEnhancedStereo",
+            &RDKit::SubstructMatchParameters::useEnhancedStereo,
+            "take enhanced stereochemistry into account while doing the match. "
+            "This only has an effect if useChirality is also True.")
+        .def_readwrite(
             "aromaticMatchesConjugated",
             &RDKit::SubstructMatchParameters::aromaticMatchesConjugated,
             "aromatic and conjugated bonds match each other")
@@ -287,7 +312,14 @@ struct mol_wrapper {
             "number of threads to use when multi-threading is possible."
             "0 selects the number of concurrent threads supported by the"
             "hardware. negative values are added to the number of concurrent"
-            "threads supported by the hardware.");
+            "threads supported by the hardware.")
+        .def("setExtraFinalCheck", setSubstructMatchFinalCheck,
+             python::with_custodian_and_ward<1, 2>(),
+             R"DOC(allows you to provide a function that will be called
+               with the molecule
+           and a vector of atom IDs containing a potential match.
+           The function should return true or false indicating whether or not
+           that match should be accepted.)DOC");
 
     python::class_<ROMol, ROMOL_SPTR, boost::noncopyable>(
         "Mol", molClassDoc.c_str(),
@@ -361,7 +393,11 @@ struct mol_wrapper {
                  1, python::with_custodian_and_ward_postcall<0, 1>>())
 
         .def("GetConformers", GetMolConformers,
-             "Get all the conformers as a tuple")
+             python::return_value_policy<
+                 python::manage_new_object,
+                 python::with_custodian_and_ward_postcall<0, 1>>(),
+             "Returns a read-only sequence containing all of the molecule's "
+             "Conformers.")
 
         .def("RemoveAllConformers", &ROMol::clearConformers,
              "Remove all the conformations on the molecule")

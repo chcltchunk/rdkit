@@ -29,10 +29,6 @@ bool atomCompat(const Atom *a1, const Atom *a2,
     res = a1->Match(a2);
   }
   return res;
-  std::cerr << "\t\tatomCompat: " << a1 << " " << a1->getIdx() << "-" << a2
-            << " " << a2->getIdx() << std::endl;
-  std::cerr << "\t\t    " << res << std::endl;
-  return res;
 }
 
 bool chiralAtomCompat(const Atom *&a1, const Atom *&a2) {
@@ -74,7 +70,7 @@ bool bondCompat(const Bond *b1, const Bond *b2,
   if (res && b1->getBondType() == Bond::DATIVE &&
       b2->getBondType() == Bond::DATIVE) {
     // for dative bonds we need to make sure that the direction also matches:
-    if (!b1->getBeginAtom()->Match(b1->getBeginAtom()) ||
+    if (!b1->getBeginAtom()->Match(b2->getBeginAtom()) ||
         !b1->getEndAtom()->Match(b2->getEndAtom())) {
       res = false;
     }

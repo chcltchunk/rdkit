@@ -16,7 +16,6 @@
 #include <GraphMol/FileParsers/MolSupplier.h>
 #include <GraphMol/RDKitBase.h>
 #include <RDBoost/PySequenceHolder.h>
-#include <RDBoost/iterator_next.h>
 
 #include "MolSupplier.h"
 
@@ -49,10 +48,10 @@ std::string sdMolSupplierClassDoc =
 \n\
     2) Lazy evaluation 2:\n\n\
        >>> suppl = SDMolSupplier('in.sdf')\n\
-       >>> mol1 = suppl.next()\n\
-       >>> mol2 = suppl.next()\n\
+       >>> mol1 = next(suppl)\n\
+       >>> mol2 = next(suppl)\n\
        >>> suppl.reset()\n\
-       >>> mol3 = suppl.next()\n\
+       >>> mol3 = next(suppl)\n\
        # mol3 and mol1 are the same:\n\
        >>> MolToSmiles(mol3)==MolToSmiles(mol1)\n\
 \n\
@@ -83,8 +82,8 @@ struct sdmolsup_wrap {
         .def("__iter__", (SDMolSupplier * (*)(SDMolSupplier *)) & MolSupplIter,
              python::return_internal_reference<1>())
         .def(
-            NEXT_METHOD,
-            (ROMol * (*)(SDMolSupplier *)) & MolSupplNextAcceptNullLastMolecule,
+            "__next__",
+            (ROMol * (*)(SDMolSupplier *)) & MolSupplNext,
             "Returns the next molecule in the file.  Raises _StopIteration_ "
             "on EOF.\n",
             python::return_value_policy<python::manage_new_object>())

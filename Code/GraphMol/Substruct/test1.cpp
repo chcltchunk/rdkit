@@ -16,6 +16,7 @@
 // RD bits
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/RDKitQueries.h>
+#include <GraphMol/Chirality.h>
 #include "SubstructMatch.h"
 #include "SubstructUtils.h"
 
@@ -480,7 +481,9 @@ void test7() {
     n = SubstructMatch(*m, *q1, matches, true, true);
     CHECK_INVARIANT(n == 1, "");
     CHECK_INVARIANT(matches[0].size() == 3, "");
-    if (!(i % 500)) std::cout << i << std::endl;
+    if (!(i % 500)) {
+      std::cout << i << std::endl;
+    }
   }
   delete m;
   delete a6;
@@ -675,7 +678,9 @@ void runblock(const std::vector<ROMol *> &mols, const ROMol *query,
               unsigned int idx) {
   for (unsigned int j = 0; j < 100; j++) {
     for (unsigned int i = 0; i < mols.size(); ++i) {
-      if (i % count != idx) continue;
+      if (i % count != idx) {
+        continue;
+      }
       ROMol *mol = mols[i];
 
       MatchVectType matchV;
@@ -685,7 +690,7 @@ void runblock(const std::vector<ROMol *> &mols, const ROMol *query,
     }
   }
 };
-}
+}  // namespace
 void testMultiThread() {
   BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
   BOOST_LOG(rdErrorLog) << "    Test multithreading" << std::endl;
@@ -702,7 +707,9 @@ void testMultiThread() {
     } catch (...) {
       continue;
     }
-    if (!mol) continue;
+    if (!mol) {
+      continue;
+    }
     mols.push_back(mol);
   }
   std::vector<std::future<void>> tg;
@@ -770,7 +777,9 @@ void testMultiThread() {
   std::cerr << " done" << std::endl;
   delete query;
 
-  for (auto &mol : mols) delete mol;
+  for (auto &mol : mols) {
+    delete mol;
+  }
 
   BOOST_LOG(rdErrorLog) << "  done" << std::endl;
 }
@@ -1589,8 +1598,266 @@ void testGithubIssue1489() {
   BOOST_LOG(rdErrorLog) << "  done" << std::endl;
 }
 
+void testGithub2570() {
+  BOOST_LOG(rdInfoLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdInfoLog)
+      << "Testing Github #2570: issue pointed out by Greg in the PR."
+      << std::endl;
+
+  bool uniquify = true;
+  bool recursionPossible = true;
+  bool useChirality = true;
+  {
+    const auto mol = R"(C[C@](Cl)(Br)F)"_smiles;
+
+    {
+      const auto query = R"([C@](Cl)(Br)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                  recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@@](Cl)(Br)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                                 recursionPossible, useChirality));
+    }
+    {  // Swap order of a pair of atoms
+      const auto query = R"([C@](Br)(Cl)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                                 recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@@](Br)(Cl)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                  recursionPossible, useChirality));
+    }
+    {  // Smaller fragments should always match as long as they have have a
+       // chiral tag,
+      // as these don't have enough neighbors to define CW/CCW chirality
+      const std::vector<std::string> smarts({"[C@](Cl)Br", "[C@@](Cl)Br",
+                                             "[C@](Br)F", "[C@@](Br)F", "[C@]F",
+                                             "[C@@]F", "[C@]", "[C@@]"});
+      std::vector<MatchVectType> matches;
+      for (const auto &sma : smarts) {
+        std::unique_ptr<ROMol> query(SmartsToMol(sma));
+        TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                                   recursionPossible, useChirality));
+      }
+    }
+  }
+  {  // Mol also starting with the chiral atom
+    const auto mol = R"([C@](C)(Cl)(Br)F)"_smiles;
+    {
+      const auto query = R"([C@](C)(Cl)(Br)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                                 recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@@](C)(Cl)(Br)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                  recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@](C)(Cl)Br)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                                 recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@@](C)(Cl)Br)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                  recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@](Cl)(Br)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                  recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@@](Cl)(Br)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                                 recursionPossible, useChirality));
+    }
+    {  // Swap order of a pair of atoms
+      const auto query = R"([C@](Br)(Cl)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                                 recursionPossible, useChirality));
+    }
+    {
+      const auto query = R"([C@@](Br)(Cl)F)"_smarts;
+      std::vector<MatchVectType> matches;
+      TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                  recursionPossible, useChirality));
+    }
+  }
+
+  {  // Start from a physical H atom
+    const auto mol = R"([H][C@](O)(F)Cl)"_smiles;
+    const auto smarts = MolToSmarts(*mol);
+    std::unique_ptr<ROMol> query(SmartsToMol(smarts));
+    TEST_ASSERT(smarts == R"([#8]-[#6@@H](-[#9])-[#17])");
+    std::vector<MatchVectType> matches;
+    TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                               recursionPossible, useChirality));
+  }
+  {
+    const auto mol = R"([H][C@](O)(F)Cl)"_smiles;
+    const auto query = R"([C@H](O)(F)Cl)"_smarts;
+    std::vector<MatchVectType> matches;
+    TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                recursionPossible, useChirality));
+  }
+  {  // Start from an attached H atom
+    const auto mol = R"([C@H](O)(F)Cl)"_smiles;
+    const auto smarts = MolToSmarts(*mol);
+    TEST_ASSERT(smarts == R"([#8]-[#6@@H](-[#9])-[#17])");
+    const auto query = SmartsToMol(smarts);
+    std::vector<MatchVectType> matches;
+    TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                               recursionPossible, useChirality));
+    delete query;
+  }
+  {
+    const auto mol = R"([C@H](O)(F)Cl)"_smiles;
+    const auto query = R"([C@H](O)(F)Cl)"_smarts;
+    std::vector<MatchVectType> matches;
+    TEST_ASSERT(!SubstructMatch(*mol, *query, matches, uniquify,
+                                recursionPossible, useChirality));
+  }
+  {  // Without H
+    const auto mol = R"([C@](O)(F)(Cl)C)"_smiles;
+    const auto smarts = MolToSmarts(*mol);
+    const auto query = SmartsToMol(smarts);
+    TEST_ASSERT(smarts == R"([#8]-[#6@](-[#9])(-[#17])-[#6])");
+    std::vector<MatchVectType> matches;
+    TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                               recursionPossible, useChirality));
+    delete query;
+  }
+  {
+    const auto mol = R"([C@](O)(F)(Cl)C)"_smiles;
+    const auto query = R"([#6@](-[#8])(-[#9])(-[#17])-[#6])"_smarts;
+    std::vector<MatchVectType> matches;
+    TEST_ASSERT(SubstructMatch(*mol, *query, matches, uniquify,
+                               recursionPossible, useChirality));
+  }
+
+  {  // What about queries not coming from SMARTS?
+    const std::vector<std::string> smiles(  // These are all equivalent
+        {"N[C@@]([H])(C)C(=O)O", "N[C@@H](C)C(=O)O", "N[C@H](C(=O)O)C",
+         "[H][C@](N)(C)C(=O)O", "[C@H](N)(C)C(=O)O"});
+    for (const auto &smi1 : smiles) {
+      const auto mol1 = std::unique_ptr<ROMol>(SmilesToMol(smi1));
+      for (const auto &smi2 : smiles) {  // Test them in both directions
+        const auto mol2 = std::unique_ptr<ROMol>(SmilesToMol(smi2));
+        std::vector<MatchVectType> matches;
+        TEST_ASSERT(SubstructMatch(*mol1, *mol2, matches, uniquify,
+                                   recursionPossible, useChirality));
+      };
+    }
+  }
+
+  BOOST_LOG(rdInfoLog) << "done" << std::endl;
+}
+
+void testEZVsCisTransMatch() {
+  BOOST_LOG(rdErrorLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdErrorLog)
+      << "    Testing matching E/Z against Cis/Trans stereo bonds" << std::endl;
+
+  const auto mol = R"(F/C(C)=C(C)/Cl)"_smiles;
+  {
+    const Bond *stereoBnd = mol->getBondWithIdx(2);
+    TEST_ASSERT(stereoBnd->getStereo() == Bond::STEREOE);
+  }
+
+  // pairs of {query, matching expectation}
+  const std::vector<std::pair<std::string, bool>> checks({
+      {R"(F/C(C)=C(C)/Cl)", true},   // identical
+      {R"(F\C(C)=C(C)\Cl)", true},   // symmetric
+      {R"(F/C(C)=C(C)\Cl)", false},  // opposite
+      {R"(F\C(C)=C(C)/Cl)", false}   // symmetric opposite
+  });
+
+  // Test with same stereoatoms as mol
+  for (const auto &check : checks) {
+    auto query = SmilesToMol(check.first);
+    {
+      Bond *stereoBnd = query->getBondWithIdx(2);
+      auto stereo = stereoBnd->getStereo();
+      TEST_ASSERT(stereo == Bond::STEREOE || stereo == Bond::STEREOZ);
+
+      stereoBnd->setStereoAtoms(0, 5);  // Same as mol
+      stereo = Chirality::translateEZLabelToCisTrans(stereo);
+      TEST_ASSERT(stereo == Bond::STEREOCIS || stereo == Bond::STEREOTRANS);
+      stereoBnd->setStereo(stereo);
+    }
+    MatchVectType match;
+    bool recursionPossible = true;
+    bool useChirality = true;
+    TEST_ASSERT(check.second == SubstructMatch(*mol, *query, match,
+                                               recursionPossible,
+                                               useChirality));
+    delete query;
+  }
+  // Symmetrize stereoatoms
+  for (const auto &check : checks) {
+    auto query = SmilesToMol(check.first);
+    {
+      Bond *stereoBnd = query->getBondWithIdx(2);
+      auto stereo = stereoBnd->getStereo();
+      TEST_ASSERT(stereo == Bond::STEREOE || stereo == Bond::STEREOZ);
+
+      stereoBnd->setStereoAtoms(2, 4);  // symmetric to mol
+      stereo = Chirality::translateEZLabelToCisTrans(stereo);
+      TEST_ASSERT(stereo == Bond::STEREOCIS || stereo == Bond::STEREOTRANS);
+      stereoBnd->setStereo(stereo);
+    }
+    MatchVectType match;
+    bool recursionPossible = true;
+    bool useChirality = true;
+    TEST_ASSERT(check.second == SubstructMatch(*mol, *query, match,
+                                               recursionPossible,
+                                               useChirality));
+    delete query;
+  }
+  // Flip one stereoatom and the label
+  for (const auto &check : checks) {
+    auto query = SmilesToMol(check.first);
+    {
+      Bond *stereoBnd = query->getBondWithIdx(2);
+      auto stereo = stereoBnd->getStereo();
+      TEST_ASSERT(stereo == Bond::STEREOE || stereo == Bond::STEREOZ);
+
+      stereoBnd->setStereoAtoms(0, 4);  // Reverse second stereoatom
+      if (stereo == Bond::STEREOE) {
+        stereo = Bond::STEREOCIS;
+      } else {
+        stereo = Bond::STEREOTRANS;
+      }
+      stereoBnd->setStereo(stereo);
+    }
+    MatchVectType match;
+    bool recursionPossible = true;
+    bool useChirality = true;
+    TEST_ASSERT(check.second == SubstructMatch(*mol, *query, match,
+                                               recursionPossible,
+                                               useChirality));
+    delete query;
+  }
+}
+
 int main(int argc, char *argv[]) {
-#if 1
+  RDLog::InitLogs();
   test1();
   test2();
   test3();
@@ -1598,7 +1865,9 @@ int main(int argc, char *argv[]) {
   test5();
   test5QueryRoot();
   test6();
-  if (argc > 1 && !strcmp(argv[1], "-l")) test7();
+  if (argc > 1 && !strcmp(argv[1], "-l")) {
+    test7();
+  }
   // test9();
   testRecursiveSerialNumbers();
   testMultiThread();
@@ -1609,7 +1878,9 @@ int main(int argc, char *argv[]) {
   testDativeMatch();
   testCisTransMatch();
   testCisTransMatch2();
-#endif
   testGithubIssue1489();
+  testGithub2570();
+  testEZVsCisTransMatch();
+
   return 0;
 }

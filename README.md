@@ -1,5 +1,4 @@
 # RDKit
-[![Travis build status](https://travis-ci.com/rdkit/rdkit.svg)](https://travis-ci.com/rdkit/rdkit)
 [![Azure build Status](https://dev.azure.com/rdkit-org/RDKit-main-build/_apis/build/status/rdkit.rdkit?branchName=master)](https://dev.azure.com/rdkit-org/RDKit-main-build/_build/latest?definitionId=1&branchName=master)
 [![Documentation Status](https://readthedocs.org/projects/rdkit/badge/?version=latest)](http://rdkit.readthedocs.org/en/latest/)
 [![DOI](https://zenodo.org/badge/10009991.svg)](https://zenodo.org/badge/latestdoi/10009991)
@@ -9,11 +8,11 @@
 
   * [BSD license](https://github.com/rdkit/rdkit/blob/master/license.txt) - a business friendly license for open source
   * Core data structures and algorithms in C++
-  * [Python 3.x wrapper](http://www.rdkit.org/docs/GettingStartedInPython.html) generated using Boost.Python
+  * [Python 3.x wrapper](https://www.rdkit.org/docs/GettingStartedInPython.html) generated using Boost.Python
   * Java and C# wrappers generated with SWIG
   * 2D and 3D molecular operations
-  * [Descriptor](http://www.rdkit.org/docs/GettingStartedInPython.html#list-of-available-descriptors) and [Fingerprint](http://www.rdkit.org/docs/GettingStartedInPython.html#list-of-available-fingerprints) generation for machine learning
-  * Molecular database [cartridge](http://www.rdkit.org/docs/Cartridge.html) for PostgreSQL supporting substructure and similarity searches as well as many descriptor calculators
+  * [Descriptor](https://www.rdkit.org/docs/GettingStartedInPython.html#list-of-available-descriptors) and [Fingerprint](http://www.rdkit.org/docs/GettingStartedInPython.html#list-of-available-fingerprints) generation for machine learning
+  * Molecular database [cartridge](https://www.rdkit.org/docs/Cartridge.html) for PostgreSQL supporting substructure and similarity searches as well as many descriptor calculators
   * Cheminformatics nodes for [KNIME](http://tech.knime.org/community/rdkit)
   * [Contrib](https://github.com/rdkit/rdkit/tree/master/Contrib) folder with useful community-contributed software harnessing the power of the RDKit
 
@@ -21,8 +20,7 @@
 
   * [RDKit web page](https://github.com/rdkit/rdkit)
   * [Blog](https://rdkit.blogspot.com)
-  * [Documentation](http://www.rdkit.org/docs/index.html) also
-    available at [ReadTheDocs](http://rdkit.readthedocs.org/en/latest/)
+  * [Documentation](https://www.rdkit.org/docs/index.html)
 
 #### Code
 
@@ -31,7 +29,6 @@
 #### Community
 
   * [Mailing list](https://sourceforge.net/p/rdkit/mailman/)
-  * [Google +](https://plus.google.com/u/0/116996224395614252219)
   * [LinkedIn](https://www.linkedin.com/groups/RDKit-8192558/about)
 
 #### Materials from user group meetings
@@ -43,6 +40,7 @@
   * [2016 UGM](https://github.com/rdkit/UGM_2016)
   * [2017 UGM](https://github.com/rdkit/UGM_2017)
   * [2018 UGM](https://github.com/rdkit/UGM_2018)
+  * [2019 UGM](https://github.com/rdkit/UGM_2019)
 
 ## Documentation
 Available on the [RDKit page](http://www.rdkit.org/docs/index.html)
@@ -59,10 +57,11 @@ Installation instructions are available in [Docs/Book/Install.md](https://github
   * [debs](https://blends.debian.org/debichem/tasks/cheminformatics) for Ubuntu and other Debian-derived Linux distros. Contributed by the Debichem team.
   * [homebrew](https://github.com/rdkit/homebrew-rdkit) formula for building on the Mac. Contributed by Eddie Cao.
   * [recipes](https://github.com/rdkit/conda-rdkit) for building using the excellent conda package manager. Contributed by Riccardo Vianello.
+  * [APKs](https://github.com/daverona/alpine-rdkit) for Alpine Linux. Contributed by da Verona
 
 ## Projects using RDKit
 
-- [stk](https://github.com/lukasturcani/stk) ([docs](https://lukasturcani.github.io/stk/docs/build/html/), [paper](https://onlinelibrary.wiley.com/doi/10.1002/jcc.25377)) -
+- [stk](https://github.com/lukasturcani/stk) ([docs](https://stk.readthedocs.io), [paper](https://onlinelibrary.wiley.com/doi/10.1002/jcc.25377)) -
 a Python library for building, manipulating, analyzing and automatic design of molecules.
 - [gpusimilarity](https://github.com/schrodinger/gpusimilarity) - A Cuda/Thrust implementation of fingerprint similarity searching
 - [Samson Connect](https://www.samson-connect.net) - Software for adaptive modeling and simulation of nanosystems
